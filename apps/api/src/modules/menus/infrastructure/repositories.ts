@@ -34,7 +34,7 @@ export class PrismaMenuItemRepository implements MenuItemRepository {
       },
       orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
     });
-    return items.map((item) => this.mapToEntity(item));
+    return items.map((item: any) => this.mapToEntity(item));
   }
 
   async update(id: string, input: UpdateMenuItemInput): Promise<MenuItemEntity> {

@@ -21,7 +21,7 @@ export class PrismaGeolocationRepository implements GeolocationRepository {
     // Use raw SQL to insert with PostGIS geography point
     // ST_PointZ creates a point from longitude, latitude
     const wktPoint = `POINT(${longitude} ${latitude})`;
-    const result = await this.db.$queryRaw<any[]>`
+    const result = (await this.db.$queryRaw`
       INSERT INTO vendor_locations (id, vendor_id, location, accuracy_meters, captured_at, is_current)
       VALUES (
         gen_random_uuid()::text,
@@ -39,7 +39,7 @@ export class PrismaGeolocationRepository implements GeolocationRepository {
         accuracy_meters as "accuracy",
         captured_at as "capturedAt",
         is_current as "isCurrent"
-    `;
+    `) as any[];
 
     if (!result || result.length === 0) {
       throw new Error('Failed to save location');
@@ -49,7 +49,7 @@ export class PrismaGeolocationRepository implements GeolocationRepository {
   }
 
   async getCurrentLocation(vendorId: string): Promise<VendorLocationEntity | null> {
-    const locations = await this.db.$queryRaw<any[]>`
+    const locations = (await this.db.$queryRaw`
       SELECT
         id,
         vendor_id as "vendorId",
@@ -62,7 +62,7 @@ export class PrismaGeolocationRepository implements GeolocationRepository {
       WHERE vendor_id = ${vendorId} AND is_current = true
       ORDER BY captured_at DESC
       LIMIT 1
-    `;
+    `) as any[];
     return locations[0] ? this.mapToEntity(locations[0]) : null;
   }
 
@@ -71,7 +71,7 @@ export class PrismaGeolocationRepository implements GeolocationRepository {
     limit: number = 100,
     offset: number = 0,
   ): Promise<VendorLocationEntity[]> {
-    const locations = await this.db.$queryRaw<any[]>`
+    const locations = (await this.db.$queryRaw`
       SELECT
         id,
         vendor_id as "vendorId",
@@ -84,8 +84,8 @@ export class PrismaGeolocationRepository implements GeolocationRepository {
       WHERE vendor_id = ${vendorId}
       ORDER BY captured_at DESC
       LIMIT ${limit} OFFSET ${offset}
-    `;
-    return locations.map((l) => this.mapToEntity(l));
+    `) as any[];
+    return locations.map((location: any) => this.mapToEntity(location));
   }
 
   async checkThrottle(input: LocationThrottleInput): Promise<LocationThrottleResult> {

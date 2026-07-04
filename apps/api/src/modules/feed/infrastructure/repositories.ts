@@ -30,7 +30,7 @@ export class PrismaFeedRepository implements FeedRepository {
       skip: offset,
     });
 
-    return specials.map((special) => ({
+    return specials.map((special: any) => ({
       id: special.id,
       type: 'DAILY_SPECIAL',
       vendor: {

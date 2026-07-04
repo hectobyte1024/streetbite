@@ -53,7 +53,7 @@ export class PrismaReviewRepository implements ReviewRepository {
       skip: offset,
     });
 
-    return reviews.map((r) => ({
+    return reviews.map((r: any) => ({
       ...this.mapToEntity(r),
       authorName: r.user.displayName || r.user.email,
     }));
@@ -72,7 +72,7 @@ export class PrismaReviewRepository implements ReviewRepository {
       skip: offset,
     });
 
-    return reviews.map((r) => ({
+    return reviews.map((r: any) => ({
       ...this.mapToEntity(r),
       authorName: r.user.displayName || r.user.email,
     }));
@@ -111,7 +111,7 @@ export class PrismaReviewRepository implements ReviewRepository {
     const distribution: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     let totalRating = 0;
 
-    for (const review of reviews) {
+    for (const review of reviews as Array<{ rating: number }>) {
       totalRating += review.rating;
       const key = review.rating as 1 | 2 | 3 | 4 | 5;
       if (key in distribution) {

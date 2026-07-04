@@ -11,7 +11,7 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository {
     const onlyOpenNow = openNow ?? false;
 
     // PostGIS geography distance functions use meters, which keeps radius search precise.
-    const results = await this.db.$queryRaw<any[]>`
+    const results = (await this.db.$queryRaw`
       SELECT
         v.id,
         v.name,
@@ -49,8 +49,8 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository {
       GROUP BY v.id, v.name, v.category, v.slug, v.price_level, vl.location, vh.opens_at, vh.closes_at
       ORDER BY "distanceMeters" ASC
       LIMIT ${limit} OFFSET ${offset}
-    `;
-    return results.map((row) => this.mapToSearchResult(row));
+    `) as any[];
+    return results.map((row: any) => this.mapToSearchResult(row));
   }
 
   async search(input: NearbySearchInput & DiscoveryFilters): Promise<VendorSearchResult[]> {
@@ -65,7 +65,7 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository {
     radiusMeters: number,
     limit: number = 10,
   ): Promise<VendorSearchResult[]> {
-    const results = await this.db.$queryRaw<any[]>`
+    const results = (await this.db.$queryRaw`
       SELECT
         v.id,
         v.name,
@@ -94,8 +94,8 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository {
       GROUP BY v.id, v.name, v.category, v.slug, v.price_level, vl.location
       ORDER BY "reviewCount" DESC, "ratingAvg" DESC
       LIMIT ${limit}
-    `;
-    return results.map((row) => this.mapToSearchResult(row));
+    `) as any[];
+    return results.map((row: any) => this.mapToSearchResult(row));
   }
 
   async getFeatured(

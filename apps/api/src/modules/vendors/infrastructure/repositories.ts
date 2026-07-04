@@ -107,7 +107,7 @@ export class PrismaVendorFollowRepository implements VendorFollowRepository {
       skip: offset,
     });
 
-    return follows.map((follow) => ({
+    return follows.map((follow: any) => ({
       ...this.mapVendorToEntity(follow.vendor),
       followedAt: follow.createdAt,
     }));
@@ -146,7 +146,7 @@ export class PrismaVendorHoursRepository implements VendorHoursRepository {
       where: { vendorId },
       orderBy: { weekday: 'asc' },
     });
-    return hours.map((hour) => this.mapToEntity(hour));
+    return hours.map((hour: any) => this.mapToEntity(hour));
   }
 
   async replaceForVendor(vendorId: string, hours: UpsertVendorHoursInput[]): Promise<VendorHoursEntity[]> {
@@ -154,7 +154,7 @@ export class PrismaVendorHoursRepository implements VendorHoursRepository {
       await tx.vendorHours.deleteMany({ where: { vendorId } });
       if (hours.length > 0) {
         await tx.vendorHours.createMany({
-          data: hours.map((hour) => ({
+          data: hours.map((hour: UpsertVendorHoursInput) => ({
             vendorId,
             weekday: hour.weekday,
             opensAt: hour.opensAt,

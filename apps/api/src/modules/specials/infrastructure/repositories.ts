@@ -32,7 +32,7 @@ export class PrismaDailySpecialRepository implements DailySpecialRepository {
       take: limit,
       skip: offset,
     });
-    return specials.map((special) => this.mapToEntity(special));
+    return specials.map((special: any) => this.mapToEntity(special));
   }
 
   async findActive(now: Date, limit: number = 50, offset: number = 0): Promise<DailySpecialEntity[]> {
@@ -46,7 +46,7 @@ export class PrismaDailySpecialRepository implements DailySpecialRepository {
       take: limit,
       skip: offset,
     });
-    return specials.map((special) => this.mapToEntity(special));
+    return specials.map((special: any) => this.mapToEntity(special));
   }
 
   async update(id: string, input: UpdateDailySpecialInput): Promise<DailySpecialEntity> {
