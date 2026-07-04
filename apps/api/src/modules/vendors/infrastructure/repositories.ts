@@ -22,7 +22,7 @@ export class PrismaVendorRepository implements VendorRepository {
       where: { ownerId },
       orderBy: { createdAt: 'desc' },
     });
-    return vendors.map((v) => this.mapToEntity(v));
+    return vendors.map((vendor: any) => this.mapToEntity(vendor));
   }
 
   async create(ownerId: string, slug: string, input: CreateVendorInput): Promise<VendorEntity> {
@@ -150,7 +150,7 @@ export class PrismaVendorHoursRepository implements VendorHoursRepository {
   }
 
   async replaceForVendor(vendorId: string, hours: UpsertVendorHoursInput[]): Promise<VendorHoursEntity[]> {
-    await this.db.$transaction(async (tx) => {
+    await this.db.$transaction(async (tx: any) => {
       await tx.vendorHours.deleteMany({ where: { vendorId } });
       if (hours.length > 0) {
         await tx.vendorHours.createMany({
