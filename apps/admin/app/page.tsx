@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 type AuthMode = 'login' | 'register';
@@ -167,9 +168,14 @@ export default function VendorOnboardingPage() {
             <p className="eyebrow">StreetBite vendor onboarding</p>
             <h1>Add a business from the street</h1>
           </div>
-          <div className="connection">
-            <span className={accessToken ? 'dot dotReady' : 'dot'} />
-            {accessToken ? 'Authenticated' : 'Needs sign in'}
+          <div className="mastheadActions">
+            <Link className="navLink" href="/nearby">
+              Customer view
+            </Link>
+            <div className="connection">
+              <span className={accessToken ? 'dot dotReady' : 'dot'} />
+              {accessToken ? 'Authenticated' : 'Needs sign in'}
+            </div>
           </div>
         </div>
 
