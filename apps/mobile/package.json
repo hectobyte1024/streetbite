@@ -1,0 +1,14 @@
+{
+  "name": "@streetbite2/mobile",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "build": "echo \"mobile build to be added\"",
+    "typecheck": "echo \"typecheck to be added\""
+  },
+  "dependencies": {
+    "expo": "^51.0.0",
+    "react": "18.2.0",
+    "react-native": "0.74.7"
+  }
+}

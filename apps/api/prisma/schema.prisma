@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  VENDOR_OWNER
+  ADMIN
+}
+
+enum VendorStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String    @map("password_hash")
+  role           UserRole  @default(CUSTOMER)
+  displayName    String?   @map("display_name")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  vendors        Vendor[]  @relation("VendorOwners")
+  reviews        Review[]
+  follows        VendorFollow[]
+  refreshTokens  RefreshToken[]
+
+  @@map("users")
+}
+
+model Vendor {
+  id              String         @id @default(cuid())
+  ownerId         String         @map("owner_id")
+  name            String
+  slug            String         @unique
+  status          VendorStatus    @default(DRAFT)
+  category        String
+  priceLevel      Int?           @map("price_level")
+  description     String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  owner           User           @relation("VendorOwners", fields: [ownerId], references: [id], onDelete: Cascade)
+  locations       VendorLocation[]
+  hours           VendorHours[]
+  reviews         Review[]
+  followers       VendorFollow[]
+  dailySpecials   DailySpecial[]
+  menuItems       MenuItem[]
+
+  @@index([ownerId])
+  @@index([status, category])
+  @@map("vendors")
+}
+
+model VendorHours {
+  id        String   @id @default(cuid())
+  vendorId  String   @map("vendor_id")
+  weekday   Int      @map("weekday") // 0 = Sunday, 6 = Saturday
+  opensAt   DateTime @map("opens_at")
+  closesAt  DateTime @map("closes_at")
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, weekday])
+  @@map("vendor_hours")
+}
+
+model VendorLocation {
+  id                  String   @id @default(cuid())
+  vendorId            String   @map("vendor_id")
+  location             Unsupported("geography(Point,4326)")
+  accuracyMeters      Int?     @map("accuracy_meters")
+  capturedAt          DateTime  @default(now()) @map("captured_at")
+  isCurrent           Boolean   @default(true) @map("is_current")
+  vendor              Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, isCurrent])
+  @@index([capturedAt])
+  @@map("vendor_locations")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  vendorId    String   @map("vendor_id")
+  userId      String   @map("user_id")
+  rating      Int
+  body        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, userId])
+  @@index([vendorId, createdAt])
+  @@map("reviews")
+}
+
+model VendorFollow {
+  id        String   @id @default(cuid())
+  vendorId  String   @map("vendor_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, userId])
+  @@index([userId, createdAt])
+  @@map("vendor_follows")
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  vendorId    String   @map("vendor_id")
+  name        String
+  description String?
+  category    String?
+  priceCents  Int      @map("price_cents")
+  currency    String   @default("MXN")
+  isAvailable Boolean  @default(true) @map("is_available")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, category, sortOrder])
+  @@index([vendorId, isAvailable])
+  @@map("menu_items")
+}
+
+model DailySpecial {
+  id          String   @id @default(cuid())
+  vendorId    String   @map("vendor_id")
+  title       String
+  description String?
+  priceCents  Int?     @map("price_cents")
+  currency    String   @default("MXN")
+  startsAt    DateTime @map("starts_at")
+  endsAt      DateTime @map("ends_at")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, startsAt])
+  @@index([isActive, startsAt, endsAt])
+  @@map("daily_specials")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @map("token_hash")
+  deviceId  String    @map("device_id")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
