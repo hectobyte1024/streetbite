@@ -1,6 +1,6 @@
 import { GeolocationRepository } from '../domain/repositories.js';
 import { Coordinates } from '../../../shared/types.js';
-import { LocationUpdate, LocationThrottleResult } from '../domain/types.js';
+import { LocationUpdate, LocationThrottleResult, VendorLocationEntity } from '../domain/types.js';
 import {
   validateCoordinates,
   validateAccuracy,
@@ -22,7 +22,7 @@ export class GeolocationService {
    * Publish a vendor's current location.
    * Includes throttling to prevent excessive updates.
    */
-  async publishLocation(vendorId: string, update: LocationUpdate): Promise<void> {
+  async publishLocation(vendorId: string, update: LocationUpdate): Promise<VendorLocationEntity> {
     this.validateLocationUpdate(update);
 
     // Check throttle rules
@@ -38,7 +38,7 @@ export class GeolocationService {
     }
 
     // Save the location
-    await this.geolocationRepository.saveLocation(
+    return this.geolocationRepository.saveLocation(
       vendorId,
       update.coordinates.lat,
       update.coordinates.lng,

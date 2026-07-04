@@ -1,10 +1,10 @@
-import { FollowedVendor, UpsertVendorHoursInput, VendorEntity, VendorFollowEntity, VendorHoursEntity, VendorStatus } from './types.js';
+import { CreateVendorInput, FollowedVendor, UpsertVendorHoursInput, VendorEntity, VendorFollowEntity, VendorHoursEntity, VendorStatus } from './types.js';
 
 export interface VendorRepository {
   findById(id: string): Promise<VendorEntity | null>;
   findBySlug(slug: string): Promise<VendorEntity | null>;
   findByOwnerId(ownerId: string): Promise<VendorEntity[]>;
-  create(ownerId: string, name: string, slug: string, category: string): Promise<VendorEntity>;
+  create(ownerId: string, slug: string, input: CreateVendorInput): Promise<VendorEntity>;
   update(id: string, data: Partial<VendorEntity>): Promise<VendorEntity>;
   updateStatus(id: string, status: VendorStatus): Promise<VendorEntity>;
   delete(id: string): Promise<void>;

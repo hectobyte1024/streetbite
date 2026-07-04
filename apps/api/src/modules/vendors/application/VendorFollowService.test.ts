@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import { VendorFollowService } from './VendorFollowService.js';
 import type { VendorFollowRepository, VendorRepository } from '../domain/repositories.js';
-import { FollowedVendor, VendorEntity, VendorFollowEntity, VendorStatus } from '../domain/types.js';
+import { CreateVendorInput, FollowedVendor, VendorEntity, VendorFollowEntity, VendorStatus } from '../domain/types.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../shared/errors.js';
 
 class InMemoryVendorRepository implements VendorRepository {
@@ -20,8 +20,16 @@ class InMemoryVendorRepository implements VendorRepository {
     return [...this.vendors.values()].filter((vendor) => vendor.ownerId === ownerId);
   }
 
-  async create(ownerId: string, name: string, slug: string, category: string): Promise<VendorEntity> {
-    const vendor = makeVendor({ id: `vendor-${this.vendors.size + 1}`, ownerId, name, slug, category });
+  async create(ownerId: string, slug: string, input: CreateVendorInput): Promise<VendorEntity> {
+    const vendor = makeVendor({
+      id: `vendor-${this.vendors.size + 1}`,
+      ownerId,
+      name: input.name,
+      slug,
+      category: input.category,
+      description: input.description ?? null,
+      priceLevel: input.priceLevel ?? null,
+    });
     this.vendors.set(vendor.id, vendor);
     return vendor;
   }

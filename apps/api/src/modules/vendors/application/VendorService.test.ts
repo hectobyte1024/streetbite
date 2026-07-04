@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import { VendorService } from './VendorService.js';
 import type { VendorRepository } from '../domain/repositories.js';
-import { VendorEntity, VendorStatus } from '../domain/types.js';
+import { CreateVendorInput, VendorEntity, VendorStatus } from '../domain/types.js';
 import { ConflictError, ForbiddenError, ValidationError } from '../../../shared/errors.js';
 
 class InMemoryVendorRepository implements VendorRepository {
@@ -20,13 +20,15 @@ class InMemoryVendorRepository implements VendorRepository {
     return [...this.vendors.values()].filter((vendor) => vendor.ownerId === ownerId);
   }
 
-  async create(ownerId: string, name: string, slug: string, category: string): Promise<VendorEntity> {
+  async create(ownerId: string, slug: string, input: CreateVendorInput): Promise<VendorEntity> {
     const vendor = makeVendor({
       id: `vendor-${this.vendors.size + 1}`,
       ownerId,
-      name,
+      name: input.name,
       slug,
-      category,
+      category: input.category,
+      description: input.description ?? null,
+      priceLevel: input.priceLevel ?? null,
     });
     this.vendors.set(vendor.id, vendor);
     return vendor;
@@ -80,11 +82,15 @@ describe('VendorService', () => {
     const vendor = await service.createVendor('owner-1', {
       name: 'Best Tacos CDMX!',
       category: 'tacos',
+      description: 'Fresh trompo near the metro',
+      priceLevel: 2,
     });
 
     assert.equal(vendor.ownerId, 'owner-1');
     assert.equal(vendor.slug, 'best-tacos-cdmx');
     assert.equal(vendor.status, VendorStatus.DRAFT);
+    assert.equal(vendor.description, 'Fresh trompo near the metro');
+    assert.equal(vendor.priceLevel, 2);
   });
 
   test('createVendor rejects duplicate slugs', async () => {

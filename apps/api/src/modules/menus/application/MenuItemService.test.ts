@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import { VendorRepository } from '../../vendors/domain/repositories.js';
-import { VendorEntity, VendorStatus } from '../../vendors/domain/types.js';
+import { CreateVendorInput, VendorEntity, VendorStatus } from '../../vendors/domain/types.js';
 import { MenuItemService } from './MenuItemService.js';
 import { MenuItemRepository } from '../domain/repositories.js';
 import { CreateMenuItemInput, MenuItemEntity, UpdateMenuItemInput } from '../domain/types.js';
@@ -22,8 +22,16 @@ class InMemoryVendorRepository implements VendorRepository {
     return [...this.vendors.values()].filter((vendor) => vendor.ownerId === ownerId);
   }
 
-  async create(ownerId: string, name: string, slug: string, category: string): Promise<VendorEntity> {
-    const vendor = makeVendor({ id: `vendor-${this.vendors.size + 1}`, ownerId, name, slug, category });
+  async create(ownerId: string, slug: string, input: CreateVendorInput): Promise<VendorEntity> {
+    const vendor = makeVendor({
+      id: `vendor-${this.vendors.size + 1}`,
+      ownerId,
+      name: input.name,
+      slug,
+      category: input.category,
+      description: input.description ?? null,
+      priceLevel: input.priceLevel ?? null,
+    });
     this.vendors.set(vendor.id, vendor);
     return vendor;
   }

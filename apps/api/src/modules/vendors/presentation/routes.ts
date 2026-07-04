@@ -3,8 +3,10 @@ import { VendorService } from '../application/VendorService.js';
 import { VendorFollowService } from '../application/VendorFollowService.js';
 import { VendorHoursService } from '../application/VendorHoursService.js';
 import { PrismaVendorFollowRepository, PrismaVendorHoursRepository, PrismaVendorRepository } from '../infrastructure/repositories.js';
-import { VendorStatus } from '../domain/types.js';
+import { CreateVendorInput, VendorStatus } from '../domain/types.js';
 import { ValidationError } from '../../../shared/errors.js';
+import { GeolocationService } from '../../geolocation/application/GeolocationService.js';
+import { PrismaGeolocationRepository } from '../../geolocation/infrastructure/repositories.js';
 
 const vendorParamsSchema = {
   type: 'object',
@@ -24,6 +26,28 @@ const createVendorBodySchema = {
     category: { type: 'string', minLength: 1, maxLength: 100 },
     description: { type: 'string', minLength: 1, maxLength: 2000 },
     priceLevel: { type: 'integer', minimum: 1, maximum: 5 },
+  },
+} as const;
+
+const onboardVendorBodySchema = {
+  type: 'object',
+  required: ['name', 'category', 'location'],
+  additionalProperties: false,
+  properties: {
+    name: { type: 'string', minLength: 1, maxLength: 255 },
+    category: { type: 'string', minLength: 1, maxLength: 100 },
+    description: { type: 'string', minLength: 1, maxLength: 2000 },
+    priceLevel: { type: 'integer', minimum: 1, maximum: 5 },
+    location: {
+      type: 'object',
+      required: ['lat', 'lng', 'accuracy'],
+      additionalProperties: false,
+      properties: {
+        lat: { type: 'number', minimum: -90, maximum: 90 },
+        lng: { type: 'number', minimum: -180, maximum: 180 },
+        accuracy: { type: 'number', exclusiveMinimum: 0, maximum: 10000 },
+      },
+    },
   },
 } as const;
 
@@ -74,9 +98,11 @@ export function registerVendorRoutes(app: FastifyInstance): void {
   const vendorRepository = new PrismaVendorRepository();
   const vendorFollowRepository = new PrismaVendorFollowRepository();
   const vendorHoursRepository = new PrismaVendorHoursRepository();
+  const geolocationRepository = new PrismaGeolocationRepository();
   const vendorService = new VendorService(vendorRepository);
   const vendorFollowService = new VendorFollowService(vendorRepository, vendorFollowRepository);
   const vendorHoursService = new VendorHoursService(vendorRepository, vendorHoursRepository);
+  const geolocationService = new GeolocationService(geolocationRepository);
 
   // Create vendor
   app.post<{ Body: { name: string; category: string; description?: string; priceLevel?: number } }>(
@@ -88,6 +114,61 @@ export function registerVendorRoutes(app: FastifyInstance): void {
       }
       const vendor = await vendorService.createVendor(request.userId, request.body);
       return reply.status(201).send({ data: vendor });
+    },
+  );
+
+  app.post<{
+    Body: {
+      name: string;
+      category: string;
+      description?: string;
+      priceLevel?: number;
+      location: { lat: number; lng: number; accuracy: number };
+    };
+  }>(
+    '/vendors/onboarding',
+    { preHandler: app.verifyJWT, schema: { body: onboardVendorBodySchema } },
+    async (
+      request: FastifyRequest<{
+        Body: {
+          name: string;
+          category: string;
+          description?: string;
+          priceLevel?: number;
+          location: { lat: number; lng: number; accuracy: number };
+        };
+      }>,
+      reply: FastifyReply,
+    ) => {
+      if (!request.userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const vendorInput: CreateVendorInput = {
+        name: request.body.name,
+        category: request.body.category,
+      };
+      if (request.body.description !== undefined) {
+        vendorInput.description = request.body.description;
+      }
+      if (request.body.priceLevel !== undefined) {
+        vendorInput.priceLevel = request.body.priceLevel;
+      }
+
+      const vendor = await vendorService.createVendor(request.userId, vendorInput);
+      const location = await geolocationService.publishLocation(vendor.id, {
+        vendorId: vendor.id,
+        coordinates: { lat: request.body.location.lat, lng: request.body.location.lng },
+        accuracy: request.body.location.accuracy,
+      });
+      const activeVendor = await vendorService.updateVendorStatus(vendor.id, request.userId, VendorStatus.ACTIVE);
+
+      return reply.status(201).send({
+        data: {
+          vendor: activeVendor,
+          location,
+        },
+      });
     },
   );
 

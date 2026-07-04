@@ -32,7 +32,7 @@ export class VendorService {
       throw new ConflictError('A vendor with this name already exists');
     }
 
-    return this.vendorRepository.create(ownerId, input.name, slug, input.category);
+    return this.vendorRepository.create(ownerId, slug, input);
   }
 
   /**

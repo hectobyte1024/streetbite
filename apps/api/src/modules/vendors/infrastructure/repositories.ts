@@ -1,6 +1,6 @@
 import { getPrisma } from '../../../shared/db.js';
 import { VendorFollowRepository, VendorHoursRepository, VendorRepository } from '../domain/repositories.js';
-import { FollowedVendor, UpsertVendorHoursInput, VendorEntity, VendorFollowEntity, VendorHoursEntity, VendorStatus } from '../domain/types.js';
+import { CreateVendorInput, FollowedVendor, UpsertVendorHoursInput, VendorEntity, VendorFollowEntity, VendorHoursEntity, VendorStatus } from '../domain/types.js';
 
 export class PrismaVendorRepository implements VendorRepository {
   private db = getPrisma();
@@ -25,13 +25,15 @@ export class PrismaVendorRepository implements VendorRepository {
     return vendors.map((v) => this.mapToEntity(v));
   }
 
-  async create(ownerId: string, name: string, slug: string, category: string): Promise<VendorEntity> {
+  async create(ownerId: string, slug: string, input: CreateVendorInput): Promise<VendorEntity> {
     const vendor = await this.db.vendor.create({
       data: {
         ownerId,
-        name,
+        name: input.name,
         slug,
-        category,
+        category: input.category,
+        description: input.description ?? null,
+        priceLevel: input.priceLevel ?? null,
       },
     });
     return this.mapToEntity(vendor);

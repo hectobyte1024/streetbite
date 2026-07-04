@@ -100,4 +100,22 @@ describe('API routes', () => {
 
     assert.equal(response.statusCode, 400);
   });
+
+  test('vendor onboarding validates GPS payloads before authentication', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/vendors/onboarding',
+      payload: {
+        name: 'Taco Stand',
+        category: 'tacos',
+        location: {
+          lat: 19.4326,
+          lng: -181,
+          accuracy: 20,
+        },
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+  });
 });
