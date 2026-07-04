@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { getPrisma } from '../../../shared/db.js';
 import { DiscoveryRepository } from '../domain/repositories.js';
 import { VendorSearchResult, NearbySearchInput, DiscoveryFilters } from '../domain/types.js';
@@ -8,14 +7,11 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository {
 
   async findNearby(input: NearbySearchInput): Promise<VendorSearchResult[]> {
     const { lat, lng, radiusMeters, category, openNow, limit = 50, offset = 0 } = input;
-
-    const categoryFilter = category ? Prisma.sql`AND v.category = ${category}` : Prisma.empty;
-    const openNowFilter = openNow
-      ? Prisma.sql`AND vh.opens_at::time <= CURRENT_TIME AND CURRENT_TIME < vh.closes_at::time`
-      : Prisma.empty;
+    const categoryFilter = category ?? null;
+    const onlyOpenNow = openNow ?? false;
 
     // PostGIS geography distance functions use meters, which keeps radius search precise.
-    const results = await this.db.$queryRaw<any[]>(Prisma.sql`
+    const results = await this.db.$queryRaw<any[]>`
       SELECT
         v.id,
         v.name,
@@ -45,12 +41,15 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository {
           ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
           ${radiusMeters}
         )
-        ${categoryFilter}
-        ${openNowFilter}
+        AND (${categoryFilter}::text IS NULL OR v.category = ${categoryFilter})
+        AND (
+          ${onlyOpenNow}::boolean = false
+          OR (vh.opens_at::time <= CURRENT_TIME AND CURRENT_TIME < vh.closes_at::time)
+        )
       GROUP BY v.id, v.name, v.category, v.slug, v.price_level, vl.location, vh.opens_at, vh.closes_at
       ORDER BY "distanceMeters" ASC
       LIMIT ${limit} OFFSET ${offset}
-    `);
+    `;
     return results.map((row) => this.mapToSearchResult(row));
   }
 
@@ -66,7 +65,7 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository {
     radiusMeters: number,
     limit: number = 10,
   ): Promise<VendorSearchResult[]> {
-    const results = await this.db.$queryRaw<any[]>(Prisma.sql`
+    const results = await this.db.$queryRaw<any[]>`
       SELECT
         v.id,
         v.name,
@@ -95,7 +94,7 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository {
       GROUP BY v.id, v.name, v.category, v.slug, v.price_level, vl.location
       ORDER BY "reviewCount" DESC, "ratingAvg" DESC
       LIMIT ${limit}
-    `);
+    `;
     return results.map((row) => this.mapToSearchResult(row));
   }
 
