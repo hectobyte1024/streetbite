@@ -16,5 +16,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
+      - run: pnpm --filter @streetbite2/api prisma:generate
       - run: pnpm typecheck
       - run: pnpm build
