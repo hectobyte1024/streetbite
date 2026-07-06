@@ -556,6 +556,16 @@ dd {
   font-weight: 800;
 }
 
+.offlineNote {
+  background: var(--accent-soft);
+  border: 1px solid rgba(29, 107, 88, 0.2);
+  border-radius: 8px;
+  color: var(--accent-dark);
+  font-weight: 800;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+}
+
 .detailColumns {
   display: grid;
   gap: 16px;

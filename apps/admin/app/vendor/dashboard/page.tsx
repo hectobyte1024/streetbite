@@ -24,6 +24,12 @@ type LocationFix = {
   accuracy: number;
 };
 
+type PendingLocation = LocationFix & {
+  id: string;
+  vendorId: string;
+  capturedAt: string;
+};
+
 type MenuItem = {
   id: string;
   name: string;
@@ -52,6 +58,8 @@ const weekdays = [
   { label: 'Saturday', value: '6' },
 ];
 
+const pendingLocationKey = 'streetbite_pending_locations';
+
 export default function VendorDashboardPage() {
   const [accessToken, setAccessToken] = useState('');
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -62,6 +70,8 @@ export default function VendorDashboardPage() {
 
   const [location, setLocation] = useState<LocationFix | null>(null);
   const [locationState, setLocationState] = useState<RequestState>('idle');
+  const [pendingLocationCount, setPendingLocationCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(true);
 
   const [menuName, setMenuName] = useState('');
   const [menuDescription, setMenuDescription] = useState('');
@@ -88,10 +98,36 @@ export default function VendorDashboardPage() {
   useEffect(() => {
     const savedToken = window.localStorage.getItem('streetbite_access_token') ?? '';
     setAccessToken(savedToken);
+    setPendingLocationCount(readPendingLocations().length);
+    setIsOnline(navigator.onLine);
     if (savedToken) {
       void loadVendors(savedToken);
     }
   }, []);
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+      void syncPendingLocations();
+    }
+
+    function handleOffline() {
+      setIsOnline(false);
+    }
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (accessToken && pendingLocationCount > 0 && navigator.onLine) {
+      void syncPendingLocations();
+    }
+  }, [accessToken, pendingLocationCount]);
 
   async function loadVendors(token = accessToken) {
     if (!token) {
@@ -168,26 +204,136 @@ export default function VendorDashboardPage() {
   }
 
   async function publishLocation(nextLocation: LocationFix) {
-    const response = await fetch(`/api/vendors/${selectedVendorId}/location`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(nextLocation),
-    });
-    const body = await parseResponse<{ ok: true }>(response);
-
-    if (!response.ok) {
-      setLocationState('error');
-      setMessage(getErrorMessage(body, 'Could not publish GPS location'));
-      setMessageTone('error');
+    const saved = await sendOrQueueLocation(selectedVendorId, nextLocation);
+    if (!saved) {
       return;
     }
 
     setLocationState('success');
     setMessage('Location updated.');
     setMessageTone('neutral');
+  }
+
+  async function sendOrQueueLocation(vendorId: string, nextLocation: LocationFix): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/vendors/${vendorId}/location`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(nextLocation),
+      });
+      const body = await parseResponse<{ ok: true }>(response);
+
+      if (response.ok) {
+        return true;
+      }
+
+      const errorMessage = getErrorMessage(body, 'Could not publish GPS location');
+      if (isRetryableLocationStatus(response.status)) {
+        queueLocation(vendorId, nextLocation);
+        setLocationState('success');
+        setMessage('GPS saved offline. It will sync when the connection returns.');
+        setMessageTone('neutral');
+        return false;
+      }
+
+      setLocationState('error');
+      setMessage(errorMessage);
+      setMessageTone('error');
+      return false;
+    } catch {
+      queueLocation(vendorId, nextLocation);
+      setLocationState('success');
+      setMessage('GPS saved offline. It will sync when the connection returns.');
+      setMessageTone('neutral');
+      return false;
+    }
+  }
+
+  function queueLocation(vendorId: string, nextLocation: LocationFix) {
+    const pending = readPendingLocations().filter((item) => item.vendorId !== vendorId);
+    pending.push({
+      ...nextLocation,
+      id: `${vendorId}-${Date.now()}`,
+      vendorId,
+      capturedAt: new Date().toISOString(),
+    });
+    writePendingLocations(pending);
+    setPendingLocationCount(pending.length);
+  }
+
+  async function syncPendingLocations() {
+    if (!accessToken) {
+      setMessage('Sign in before syncing saved GPS updates.');
+      setMessageTone('error');
+      return;
+    }
+
+    const pending = readPendingLocations();
+    if (pending.length === 0) {
+      setPendingLocationCount(0);
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setIsOnline(false);
+      setMessage('GPS updates are saved on this device until connection returns.');
+      setMessageTone('neutral');
+      return;
+    }
+
+    setLocationState('loading');
+    setMessage('Syncing saved GPS updates...');
+    setMessageTone('neutral');
+
+    const remaining: PendingLocation[] = [];
+    let syncError = '';
+    for (const item of pending) {
+      try {
+        const response = await fetch(`/api/vendors/${item.vendorId}/location`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            lat: item.lat,
+            lng: item.lng,
+            accuracy: item.accuracy,
+          }),
+        });
+
+        if (!response.ok) {
+          const body = await parseResponse<{ ok: true }>(response);
+          if (response.status === 401 || response.status === 403) {
+            remaining.push(item);
+            syncError = 'Sign in again before syncing saved GPS updates.';
+          } else if (isRetryableLocationStatus(response.status)) {
+            remaining.push(item);
+          } else {
+            syncError = getErrorMessage(body, 'Could not sync a saved GPS update');
+          }
+        }
+      } catch {
+        remaining.push(item);
+      }
+    }
+
+    writePendingLocations(remaining);
+    setPendingLocationCount(remaining.length);
+    setLocationState('success');
+    if (syncError) {
+      setMessage(syncError);
+      setMessageTone('error');
+    } else if (remaining.length) {
+      setMessage(`${remaining.length} GPS update${remaining.length === 1 ? '' : 's'} still saved offline.`);
+      setMessageTone('neutral');
+    } else {
+      setMessage('Saved GPS updates synced.');
+      setMessageTone('neutral');
+    }
   }
 
   async function handleMenuSubmit(event: FormEvent<HTMLFormElement>) {
@@ -381,6 +527,14 @@ export default function VendorDashboardPage() {
                 <dt>Vendor ID</dt>
                 <dd>{selectedVendor?.id ?? '-'}</dd>
               </div>
+              <div>
+                <dt>Connection</dt>
+                <dd>{isOnline ? 'Online' : 'Offline'}</dd>
+              </div>
+              <div>
+                <dt>Saved GPS</dt>
+                <dd>{pendingLocationCount}</dd>
+              </div>
             </dl>
           </aside>
 
@@ -401,7 +555,15 @@ export default function VendorDashboardPage() {
                 <button className="secondaryButton" disabled={!canManage || locationState === 'loading'} type="button" onClick={captureLocation}>
                   {locationState === 'loading' ? 'Finding...' : 'Use my GPS'}
                 </button>
+                <button className="secondaryButton" disabled={!accessToken || pendingLocationCount === 0 || locationState === 'loading'} type="button" onClick={syncPendingLocations}>
+                  Sync saved GPS
+                </button>
               </div>
+              {pendingLocationCount > 0 ? (
+                <p className="offlineNote">
+                  {pendingLocationCount} GPS update{pendingLocationCount === 1 ? '' : 's'} saved on this device.
+                </p>
+              ) : null}
             </section>
 
             <section className="dashboardForms">
@@ -529,4 +691,25 @@ function moneyToCents(value: string): number {
 
 function roundCoordinate(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function readPendingLocations(): PendingLocation[] {
+  try {
+    const raw = window.localStorage.getItem(pendingLocationKey);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingLocations(locations: PendingLocation[]) {
+  window.localStorage.setItem(pendingLocationKey, JSON.stringify(locations));
+}
+
+function isRetryableLocationStatus(status: number): boolean {
+  return status === 409 || status === 429 || status >= 500;
 }
