@@ -217,6 +217,9 @@ export default function NearbyVendorsPage() {
                       {vendor.location.lat}, {vendor.location.lng}
                     </small>
                   </div>
+                  <Link className="cardLink" href={`/vendors/${vendor.id}`}>
+                    View details
+                  </Link>
                 </article>
               ))
             )}

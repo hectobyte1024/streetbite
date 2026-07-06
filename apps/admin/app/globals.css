@@ -459,6 +459,130 @@ dd {
   font-weight: 800;
 }
 
+.cardLink {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 8px;
+  color: #ffffff;
+  display: inline-flex;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  text-decoration: none;
+}
+
+.cardLink:hover {
+  background: var(--accent-dark);
+}
+
+.profileGrid {
+  align-items: flex-start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(280px, 0.78fr) minmax(360px, 1.42fr);
+}
+
+.profileSummary {
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: 18px;
+}
+
+.profileSummary h2 {
+  font-size: 1.8rem;
+}
+
+.profileSummary p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.profileMeta {
+  margin-top: 2px;
+}
+
+.profileMap {
+  min-height: 96px;
+}
+
+.profileStack {
+  display: grid;
+  gap: 16px;
+}
+
+.detailColumns {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.itemList {
+  display: grid;
+  gap: 10px;
+}
+
+.listItem {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding-top: 12px;
+}
+
+.listItem div {
+  display: grid;
+  gap: 3px;
+}
+
+.listItem strong,
+.compactList strong {
+  color: var(--ink);
+}
+
+.listItem small,
+.compactList span,
+.compactList small,
+.mutedText {
+  color: var(--muted);
+}
+
+.listItem > span {
+  background: var(--panel-strong);
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-weight: 900;
+  padding: 8px 10px;
+}
+
+.compactList {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.compactList div {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
+  padding-top: 10px;
+}
+
+.mutedText {
+  font-weight: 700;
+  margin: 14px 0 0;
+}
+
+.loadingPanel {
+  min-height: 160px;
+}
+
+.retryButton {
+  margin-top: 14px;
+}
+
 @media (max-width: 940px) {
   .grid {
     grid-template-columns: 1fr;
@@ -468,9 +592,15 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .profileGrid,
+  .detailColumns {
+    grid-template-columns: 1fr;
+  }
+
   .authPanel,
   .summaryPanel,
-  .searchPanel {
+  .searchPanel,
+  .profileSummary {
     position: static;
   }
 
@@ -514,5 +644,14 @@ dd {
   .navLink,
   .connection {
     justify-content: center;
+  }
+
+  .listItem {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .listItem > span {
+    text-align: center;
   }
 }
