@@ -121,6 +121,9 @@ export default function VendorDetailPage() {
             <h1>{profile?.vendor.name ?? 'Loading vendor'}</h1>
           </div>
           <div className="mastheadActions">
+            <Link className="navLink" href="/vendor/dashboard">
+              Vendor dashboard
+            </Link>
             <Link className="navLink" href="/nearby">
               Nearby vendors
             </Link>

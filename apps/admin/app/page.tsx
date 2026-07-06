@@ -169,6 +169,9 @@ export default function VendorOnboardingPage() {
             <h1>Add a business from the street</h1>
           </div>
           <div className="mastheadActions">
+            <Link className="navLink" href="/vendor/dashboard">
+              Vendor dashboard
+            </Link>
             <Link className="navLink" href="/nearby">
               Customer view
             </Link>

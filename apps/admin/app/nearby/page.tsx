@@ -124,6 +124,9 @@ export default function NearbyVendorsPage() {
             <h1>Find food near you</h1>
           </div>
           <div className="mastheadActions">
+            <Link className="navLink" href="/vendor/dashboard">
+              Vendor dashboard
+            </Link>
             <Link className="navLink" href="/">
               Vendor onboarding
             </Link>
