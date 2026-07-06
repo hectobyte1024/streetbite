@@ -586,6 +586,10 @@ dd {
   font-weight: 700;
 }
 
+.nearbyOfflineCard {
+  margin-top: 0;
+}
+
 .detailColumns {
   display: grid;
   gap: 16px;

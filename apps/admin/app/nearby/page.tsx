@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type RequestState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -36,7 +36,16 @@ type NearbyResponse = {
   };
 };
 
+type CachedNearby = {
+  vendors: NearbyVendor[];
+  location: LocationFix;
+  category: string;
+  radiusMeters: string;
+  capturedAt: string;
+};
+
 const categories = ['all', 'tacos', 'tamales', 'tortas', 'mariscos', 'coffee', 'dessert', 'other'];
+const nearbyCacheKey = 'streetbite_nearby_cache';
 
 export default function NearbyVendorsPage() {
   const [location, setLocation] = useState<LocationFix | null>(null);
@@ -45,10 +54,35 @@ export default function NearbyVendorsPage() {
   const [category, setCategory] = useState('all');
   const [status, setStatus] = useState<RequestState>('idle');
   const [message, setMessage] = useState('');
+  const [isOnline, setIsOnline] = useState(true);
+  const [cachedAt, setCachedAt] = useState('');
 
   const sortedVendors = useMemo(() => {
     return [...vendors].sort((first, second) => first.distanceMeters - second.distanceMeters);
   }, [vendors]);
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const cached = readCachedNearby();
+    if (cached) {
+      setCachedAt(cached.capturedAt);
+    }
+
+    function handleOnline() {
+      setIsOnline(true);
+    }
+
+    function handleOffline() {
+      setIsOnline(false);
+    }
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   function captureLocation() {
     setStatus('loading');
@@ -101,18 +135,57 @@ export default function NearbyVendorsPage() {
       params.set('category', category);
     }
 
-    const response = await fetch(`/api/vendors/nearby?${params.toString()}`);
-    const body = (await response.json().catch(() => ({}))) as NearbyResponse;
+    try {
+      const response = await fetch(`/api/vendors/nearby?${params.toString()}`);
+      const body = (await response.json().catch(() => ({}))) as NearbyResponse;
 
-    if (!response.ok || !body.data) {
+      if (!response.ok || !body.data) {
+        useCachedNearby(locationOverride, getErrorMessage(body, 'Could not load nearby vendors'));
+        return;
+      }
+
+      setVendors(body.data);
+      setStatus('success');
+      setMessage(body.data.length === 0 ? 'No active vendors found in this area yet.' : `${body.data.length} nearby vendor${body.data.length === 1 ? '' : 's'} found.`);
+      const nextCachedAt = new Date().toISOString();
+      writeCachedNearby({
+        vendors: body.data,
+        location: locationOverride,
+        category,
+        radiusMeters,
+        capturedAt: nextCachedAt,
+      });
+      setCachedAt(nextCachedAt);
+    } catch {
+      useCachedNearby(locationOverride, 'Could not reach StreetBite. Showing saved nearby results.');
+    }
+  }
+
+  function useCachedNearby(locationOverride: LocationFix, fallbackMessage: string) {
+    const cached = readCachedNearby();
+    if (!cached || cached.vendors.length === 0) {
       setStatus('error');
-      setMessage(getErrorMessage(body, 'Could not load nearby vendors'));
+      setMessage(fallbackMessage);
       return;
     }
 
-    setVendors(body.data);
+    const radius = Number.parseInt(radiusMeters, 10);
+    const filtered = cached.vendors
+      .filter((vendor) => category === 'all' || vendor.category === category)
+      .map((vendor) => ({
+        ...vendor,
+        distanceMeters: calculateDistanceMeters(locationOverride, vendor.location),
+      }))
+      .filter((vendor) => vendor.distanceMeters <= radius);
+
+    setVendors(filtered);
     setStatus('success');
-    setMessage(body.data.length === 0 ? 'No active vendors found in this area yet.' : `${body.data.length} nearby vendor${body.data.length === 1 ? '' : 's'} found.`);
+    setCachedAt(cached.capturedAt);
+    setMessage(
+      filtered.length === 0
+        ? 'No saved vendors match this filter.'
+        : `Showing ${filtered.length} saved vendor${filtered.length === 1 ? '' : 's'} from the last successful search.`,
+    );
   }
 
   return (
@@ -147,6 +220,11 @@ export default function NearbyVendorsPage() {
             </div>
 
             <div className="form">
+              <div className="offlineCard nearbyOfflineCard">
+                <strong>{isOnline ? 'Live search ready' : 'Offline results ready'}</strong>
+                <span>{cachedAt ? `Last saved nearby search: ${formatTimestamp(cachedAt)}` : 'Nearby results save after the first successful search.'}</span>
+              </div>
+
               <div className="fieldPair">
                 <label>
                   Radius
@@ -263,4 +341,49 @@ function formatRating(ratingAvg: number | null, reviewCount: number): string {
     return 'No reviews';
   }
   return `${ratingAvg.toFixed(1)} (${reviewCount})`;
+}
+
+function readCachedNearby(): CachedNearby | null {
+  try {
+    const raw = window.localStorage.getItem(nearbyCacheKey);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.vendors)) {
+      return null;
+    }
+    return parsed as CachedNearby;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedNearby(cache: CachedNearby) {
+  window.localStorage.setItem(nearbyCacheKey, JSON.stringify(cache));
+}
+
+function calculateDistanceMeters(origin: LocationFix, destination: { lat: number; lng: number }): number {
+  const earthRadiusMeters = 6_371_000;
+  const lat1 = toRadians(origin.lat);
+  const lat2 = toRadians(destination.lat);
+  const deltaLat = toRadians(destination.lat - origin.lat);
+  const deltaLng = toRadians(destination.lng - origin.lng);
+  const haversine =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function toRadians(value: number): number {
+  return (value * Math.PI) / 180;
+}
+
+function formatTimestamp(value: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
 }

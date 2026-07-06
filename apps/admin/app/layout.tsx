@@ -6,6 +6,9 @@ export const metadata = {
   title: 'StreetBite Vendor',
   description: 'Offline-ready vendor GPS and StreetBite stand management.',
   manifest: '/manifest.webmanifest',
+};
+
+export const viewport = {
   themeColor: '#1d6b58',
 };
 
