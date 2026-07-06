@@ -536,6 +536,11 @@ export default function VendorDashboardPage() {
                 <dd>{pendingLocationCount}</dd>
               </div>
             </dl>
+
+            <div className="offlineCard">
+              <strong>Offline GPS ready</strong>
+              <span>GPS captures stay on this device first, then sync when the connection is available.</span>
+            </div>
           </aside>
 
           <section className="dashboardMain">

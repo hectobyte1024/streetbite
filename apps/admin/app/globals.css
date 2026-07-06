@@ -566,6 +566,26 @@ dd {
   padding: 10px 12px;
 }
 
+.offlineCard {
+  background: #f4f7f0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  margin-top: 16px;
+  padding: 12px;
+}
+
+.offlineCard strong {
+  color: var(--ink);
+}
+
+.offlineCard span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .detailColumns {
   display: grid;
   gap: 16px;

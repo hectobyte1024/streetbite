@@ -1,0 +1,18 @@
+{
+  "name": "StreetBite Vendor",
+  "short_name": "StreetBite",
+  "description": "Capture vendor GPS and manage a StreetBite stand in street conditions.",
+  "start_url": "/vendor/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#1d6b58",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
