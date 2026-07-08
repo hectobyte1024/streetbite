@@ -539,6 +539,10 @@ dd {
   grid-column: 1 / -1;
 }
 
+.gpsButton {
+  min-width: 140px;
+}
+
 .lightList {
   margin-top: 18px;
 }

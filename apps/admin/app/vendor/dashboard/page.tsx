@@ -48,6 +48,11 @@ type VendorHours = {
   closesAt: string;
 };
 
+type TokenResponse = {
+  accessToken: string;
+  refreshToken: string;
+};
+
 const weekdays = [
   { label: 'Sunday', value: '0' },
   { label: 'Monday', value: '1' },
@@ -62,6 +67,9 @@ const pendingLocationKey = 'streetbite_pending_locations';
 
 export default function VendorDashboardPage() {
   const [accessToken, setAccessToken] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authState, setAuthState] = useState<RequestState>('idle');
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [loadState, setLoadState] = useState<RequestState>('idle');
@@ -128,6 +136,44 @@ export default function VendorDashboardPage() {
       void syncPendingLocations();
     }
   }, [accessToken, pendingLocationCount]);
+
+  async function handleSignIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthState('loading');
+    setMessage('');
+    setMessageTone('neutral');
+
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const body = await parseResponse<TokenResponse>(response);
+
+    if (!response.ok || !body.data) {
+      setAuthState('error');
+      setMessage(getErrorMessage(body, 'Could not sign in'));
+      setMessageTone('error');
+      return;
+    }
+
+    window.localStorage.setItem('streetbite_access_token', body.data.accessToken);
+    setAccessToken(body.data.accessToken);
+    setPassword('');
+    setAuthState('success');
+    await loadVendors(body.data.accessToken);
+  }
+
+  function handleSignOut() {
+    window.localStorage.removeItem('streetbite_access_token');
+    setAccessToken('');
+    setVendors([]);
+    setSelectedVendorId('');
+    setAuthState('idle');
+    setLoadState('idle');
+    setMessage('Signed out on this device.');
+    setMessageTone('neutral');
+  }
 
   async function loadVendors(token = accessToken) {
     if (!token) {
@@ -480,39 +526,67 @@ export default function VendorDashboardPage() {
             <div className="panelHeader">
               <div>
                 <p className="panelKicker">Account</p>
-                <h2>Vendor access</h2>
+                <h2>{accessToken ? 'Vendor access' : 'Sign in'}</h2>
               </div>
             </div>
 
-            <div className="form">
-              <label>
-                Access token
-                <input
-                  onChange={(event) => setAccessToken(event.target.value)}
-                  placeholder="Saved after sign in"
-                  value={accessToken}
-                />
-              </label>
-              <button className="primaryButton" disabled={loadState === 'loading'} type="button" onClick={() => loadVendors()}>
-                {loadState === 'loading' ? 'Loading...' : 'Load my vendors'}
-              </button>
+            {accessToken ? (
+              <div className="form">
+                <button className="primaryButton" disabled={loadState === 'loading'} type="button" onClick={() => loadVendors()}>
+                  {loadState === 'loading' ? 'Loading...' : 'Refresh my business'}
+                </button>
 
-              <label>
-                Active vendor
-                <select
-                  disabled={vendors.length === 0}
-                  onChange={(event) => setSelectedVendorId(event.target.value)}
-                  value={selectedVendorId}
-                >
-                  {vendors.length === 0 ? <option value="">No vendors loaded</option> : null}
-                  {vendors.map((vendor) => (
-                    <option key={vendor.id} value={vendor.id}>
-                      {vendor.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                <label>
+                  Active vendor
+                  <select
+                    disabled={vendors.length === 0}
+                    onChange={(event) => setSelectedVendorId(event.target.value)}
+                    value={selectedVendorId}
+                  >
+                    {vendors.length === 0 ? <option value="">No vendors loaded</option> : null}
+                    {vendors.map((vendor) => (
+                      <option key={vendor.id} value={vendor.id}>
+                        {vendor.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <button className="secondaryButton" type="button" onClick={handleSignOut}>
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <form className="form" onSubmit={handleSignIn}>
+                <label>
+                  Email
+                  <input
+                    autoComplete="email"
+                    inputMode="email"
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="owner@example.com"
+                    required
+                    type="email"
+                    value={email}
+                  />
+                </label>
+                <label>
+                  Password
+                  <input
+                    autoComplete="current-password"
+                    minLength={8}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="At least 8 characters"
+                    required
+                    type="password"
+                    value={password}
+                  />
+                </label>
+                <button className="primaryButton" disabled={authState === 'loading'} type="submit">
+                  {authState === 'loading' ? 'Signing in...' : 'Sign in'}
+                </button>
+              </form>
+            )}
 
             <dl className="lightList">
               <div>
@@ -557,7 +631,7 @@ export default function VendorDashboardPage() {
                   <strong>{location ? `${location.lat}, ${location.lng}` : 'No location captured'}</strong>
                   <small>{location ? `Accuracy ${location.accuracy} m` : 'Use this from the store phone.'}</small>
                 </div>
-                <button className="secondaryButton" disabled={!canManage || locationState === 'loading'} type="button" onClick={captureLocation}>
+                <button className="primaryButton gpsButton" disabled={!canManage || locationState === 'loading'} type="button" onClick={captureLocation}>
                   {locationState === 'loading' ? 'Finding...' : 'Use my GPS'}
                 </button>
                 <button className="secondaryButton" disabled={!accessToken || pendingLocationCount === 0 || locationState === 'loading'} type="button" onClick={syncPendingLocations}>
